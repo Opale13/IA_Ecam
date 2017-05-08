@@ -36,9 +36,11 @@ class PylosState(game.GameState):
         super().__init__(initialstate)
 
     def get(self, layer, row, column):
+        '''Permet de savoir si les coord sont bonnes et si la place est libre'''
         if layer < 0 or row < 0 or column < 0:
             raise game.InvalidMoveException('The position ({}) is outside of the board'.format([layer, row, column]))         
         try:
+            #return None si vide, 1 ou 0 en fonction du joueur
             return self._state['visible']['board'][layer][row][column]
         except:
             raise game.InvalidMoveException('The position ({}) is outside of the board'.format([layer, row, column]))
@@ -50,6 +52,7 @@ class PylosState(game.GameState):
             return None
 
     def validPosition(self, layer, row, column):
+        '''permet de savoir si la place est libre et si elle est stable'''
         if self.get(layer, row, column) != None:
             raise game.InvalidMoveException('The position ({}) is not free'.format([layer, row, column]))
 
@@ -63,6 +66,7 @@ class PylosState(game.GameState):
                 raise game.InvalidMoveException('The position ({}) is not stable'.format([layer, row, column]))
 
     def canMove(self, layer, row, column):
+        '''Verifie si la place est vide, et s'il y a une piéce au dessus'''
         if self.get(layer, row, column) == None:
             raise game.InvalidMoveException('The position ({}) is empty'.format([layer, row, column]))
 
@@ -76,6 +80,7 @@ class PylosState(game.GameState):
                 raise game.InvalidMoveException('The position ({}) is not movable'.format([layer, row, column]))
 
     def createSquare(self, coord):
+        '''Regarde si on a créé une carré'''
         layer, row, column = tuple(coord)
 
         def isSquare(layer, row, column):
