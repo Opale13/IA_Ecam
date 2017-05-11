@@ -194,7 +194,6 @@ class PylosServer(game.GameServer):
         except json.JSONDecodeError:
             raise game.InvalidMoveException('move must be valid JSON string: {}'.format(move))
 
-
 class PylosClient(game.GameClient):
     '''Class representing a client for the Pylos game.'''
     def __init__(self, name, server, verbose=False):
@@ -207,9 +206,10 @@ class PylosClient(game.GameClient):
     #return move as string
     def _nextmove(self, state):
         statut= state._state['visible']
+
+        #Eviter d'afficher plus de 2 itérrations le pc n'aime pas trop
         t = Tree(state, statut['turn'], 2)
 
-        print("arbre: ", t.children)
         '''
         example of moves
         coordinates are like [layer, row, colums]
@@ -254,6 +254,19 @@ class Tree:
 
         self._coupvalide(self.__state)
 
+    def __str__(self):
+        '''Affiche l'arbre et ses enfants'''
+        def _str(tree, level):
+            result = '[{}]\n'.format(tree.__state)
+            for child in tree.children:
+                result += '{}|--{}'.format('  ' * level, _str(child, level + 1))
+            return result
+        return _str(self, 0)
+
+    def __getitem__(self, item):
+        '''Permet de faire des boucle for dans l'arbre'''
+        return self.__children[item]
+
     @property
     def state(self):
         return self.__state._state['visible']
@@ -263,6 +276,7 @@ class Tree:
         return self.__children
 
     def _possiblemove(self, state):
+        '''Enregistre tous les places où on peut faire une action'''
         possiblemove = []
         for move in self._getmove(state):
             try:
@@ -274,6 +288,7 @@ class Tree:
         return possiblemove
 
     def _getmove(self, state):
+        '''Cherche toute les places vide sur le plateau'''
         statue = state._state['visible']['board']
         move = []
         layer = 0
@@ -297,11 +312,13 @@ class Tree:
 
     def _coupvalide(self, state):
         possiblemove = self._possiblemove(state)
+        #Pour chaque PLACEMENT possible on créé des enfants
         for move in possiblemove:
             new_state = copy.deepcopy(state)
             layer, row, column = move
             new_state._state['visible']['board'][layer][row][column] = self.__player
 
+            #limitation des ittérations
             if self.__iterration > 0:
                 if self.__player == 0:
                     iterration = self.__iterration - 1
