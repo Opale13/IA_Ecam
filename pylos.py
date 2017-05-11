@@ -8,6 +8,7 @@ import argparse
 import socket
 import sys
 import json
+import copy
 
 from lib import game
 
@@ -205,6 +206,9 @@ class PylosClient(game.GameClient):
     
     #return move as string
     def _nextmove(self, state):
+        statut= state._state['visible']
+        t = Tree(state, statut['turn'], 2)
+        print("arbre: ", t.children)
         '''
         example of moves
         coordinates are like [layer, row, colums]
@@ -231,8 +235,6 @@ class PylosClient(game.GameClient):
         
         return it in JSON
         '''
-        print("Move = " ,self._getmove(state))
-
         for layer in range(4):
             for row in range(4-layer):
                 for column in range(4-layer):
@@ -241,6 +243,35 @@ class PylosClient(game.GameClient):
                             'move': 'place',
                             'to': [layer, row, column]
                         })
+
+class Tree:
+    def __init__(self, state, player, iterration, children = []):
+        self.__state = copy.deepcopy(state)
+        self.__children = copy.deepcopy(children)
+        self.__player = player
+        self.__iterration = iterration
+
+        self._coupvalide(self.__state)
+
+    @property
+    def state(self):
+        return self.__state._state['visible']
+
+    @property
+    def children(self):
+        return self.__children
+
+    def _possiblemove(self, state):
+        possiblemove = []
+        for move in self._getmove(state):
+            try:
+                layer, row, column = move
+                state.validPosition(layer, row, column)
+                possiblemove.append(move)
+            except:
+                pass
+        print("possiblemove: ", possiblemove)
+        return possiblemove
 
     def _getmove(self, state):
         statue = state._state['visible']['board']
@@ -264,18 +295,19 @@ class PylosClient(game.GameClient):
             layer += 1
         return move
 
-    def _isbadposition(self, state, player):
-        if state.winner() == player:
-            return 1
+    def _coupvalide(self, state):
+        possiblemove = self._possiblemove(state)
+        for move in possiblemove:
+            layer, row, column = move
+            state._state['visible']['board'][layer][row][column] = self.__player
 
-        if state.winner() == -1:
-            return 0
-
-        else:
-            return -1
-
-    def _findgoodmove(self, state):
-        pass
+            if self.__iterration > 0:
+                if self.__player == 0:
+                    iterration = self.__iterration - 1
+                    self.__children.append(Tree(state._state['visible'], 1, iterration))
+                else:
+                    iterration = self.__iterration - 1
+                    self.__children.append(Tree(state._state['visible'], 0, iterration))
 
 
 if __name__ == '__main__':
