@@ -208,6 +208,7 @@ class PylosClient(game.GameClient):
     def _nextmove(self, state):
         statut= state._state['visible']
         t = Tree(state, statut['turn'], 2)
+
         print("arbre: ", t.children)
         '''
         example of moves
@@ -270,7 +271,6 @@ class Tree:
                 possiblemove.append(move)
             except:
                 pass
-        print("possiblemove: ", possiblemove)
         return possiblemove
 
     def _getmove(self, state):
@@ -298,16 +298,17 @@ class Tree:
     def _coupvalide(self, state):
         possiblemove = self._possiblemove(state)
         for move in possiblemove:
+            new_state = copy.deepcopy(state)
             layer, row, column = move
-            state._state['visible']['board'][layer][row][column] = self.__player
+            new_state._state['visible']['board'][layer][row][column] = self.__player
 
             if self.__iterration > 0:
                 if self.__player == 0:
                     iterration = self.__iterration - 1
-                    self.__children.append(Tree(state._state['visible'], 1, iterration))
+                    self.__children.append(Tree(new_state, 1, iterration))
                 else:
                     iterration = self.__iterration - 1
-                    self.__children.append(Tree(state._state['visible'], 0, iterration))
+                    self.__children.append(Tree(new_state, 0, iterration))
 
 
 if __name__ == '__main__':
