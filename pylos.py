@@ -231,16 +231,39 @@ class PylosClient(game.GameClient):
         
         return it in JSON
         '''
+        print("Statut = ", state._state['visible']['board'])
+        print("Move = " ,self._getmove(state))
+
         for layer in range(4):
             for row in range(4-layer):
                 for column in range(4-layer):
                     if state.get(layer, row, column) == None:
-                        print("Layer = ", layer, "row = ", row, "column", column)
                         return json.dumps({
                             'move': 'place',
                             'to': [layer, row, column]
                         })
 
+    def _getmove(self, state):
+        statue = state._state['visible']['board']
+        move = []
+        layer = 0
+        number_line = 0
+        indice = 0
+
+        while layer <= 3:
+            number_line = 0
+            indice = 0
+            while number_line < len(statue[layer]):
+                lines = statue[layer][number_line]
+
+                for place in lines:
+                    if place is None:
+                        move.append((layer, indice//len(statue[layer]), indice%len(statue[layer])))
+                    indice += 1
+
+                number_line += 1
+            layer += 1
+        return move
 
 if __name__ == '__main__':
     # Create the top-level parser
