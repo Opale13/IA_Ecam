@@ -205,11 +205,12 @@ class PylosClient(game.GameClient):
     
     #return move as string
     def _nextmove(self, state):
-        statut= state._state['visible']
+        player = state._state['visible']['turn']
+        iterration = 2
 
         #Eviter d'afficher plus de 2 itérrations le pc n'aime pas trop
-        t = Tree(state, statut['turn'], 2)
-
+        t = Tree(state, player, iterration)
+        print(t)
         '''
         example of moves
         coordinates are like [layer, row, colums]
@@ -246,18 +247,20 @@ class PylosClient(game.GameClient):
                         })
 
 class Tree:
-    def __init__(self, state, player, iterration, children = []):
+    def __init__(self, state, player, iterration, move='place', coup='', children=[]):
         self.__state = copy.deepcopy(state)
-        self.__children = copy.deepcopy(children)
         self.__player = player
         self.__iterration = iterration
+        self.__move = move
+        self.__coup = coup
+        self.__children = copy.deepcopy(children)
 
         self._coupvalide(self.__state)
 
     def __str__(self):
         '''Affiche l'arbre et ses enfants'''
         def _str(tree, level):
-            result = '[{}]\n'.format(tree.__state)
+            result = '{}:[{}]\n'.format(tree.move, tree.__state)
             for child in tree.children:
                 result += '{}|--{}'.format('  ' * level, _str(child, level + 1))
             return result
@@ -275,19 +278,39 @@ class Tree:
     def children(self):
         return self.__children
 
-    def _possiblemove(self, state):
+    @property
+    def move(self):
+        return self.__move
+
+    @property
+    def coup(self):
+        return self.__coup
+
+    def _possibleplacement(self, state):
         '''Enregistre tous les places où on peut faire une action'''
+        possibleplacement = []
+        for move in self._getplace(state):
+            try:
+                layer, row, column = move
+                state.validPosition(layer, row, column)
+                possibleplacement.append(move)
+            except:
+                pass
+        return possibleplacement
+
+    def _possiblemove(self, state):
         possiblemove = []
         for move in self._getmove(state):
             try:
                 layer, row, column = move
-                state.validPosition(layer, row, column)
+                state.canMove(layer, row, column)
                 possiblemove.append(move)
             except:
                 pass
+
         return possiblemove
 
-    def _getmove(self, state):
+    def _getplace(self, state):
         '''Cherche toute les places vide sur le plateau'''
         statue = state._state['visible']['board']
         move = []
@@ -310,10 +333,35 @@ class Tree:
             layer += 1
         return move
 
+    def _getmove(self, state):
+        move = []
+        statue = state._state['visible']['board']
+        layer = 0
+
+        while layer < 3:
+            long_layer = len(statue[layer])
+            indice = 0
+            number_line = 0
+
+            while number_line < long_layer:
+                lines = statue[layer][number_line]
+
+                for place in lines:
+                    if place is not None:
+                        move.append((layer, indice // long_layer, indice % long_layer))
+                    indice += 1
+
+                number_line += 1
+            layer += 1
+
+        return move
+
     def _coupvalide(self, state):
+        possibleplacement = self._possibleplacement(state)
         possiblemove = self._possiblemove(state)
+
         #Pour chaque PLACEMENT possible on créé des enfants
-        for move in possiblemove:
+        for move in possibleplacement:
             new_state = copy.deepcopy(state)
             layer, row, column = move
             new_state._state['visible']['board'][layer][row][column] = self.__player
@@ -322,11 +370,40 @@ class Tree:
             if self.__iterration > 0:
                 if self.__player == 0:
                     iterration = self.__iterration - 1
-                    self.__children.append(Tree(new_state, 1, iterration))
+                    new_state._state['visible']['turn'] = 1
+                    self.__children.append(Tree(new_state, 1, iterration, 'place', move))
                 else:
                     iterration = self.__iterration - 1
-                    self.__children.append(Tree(new_state, 0, iterration))
+                    new_state._state['visible']['turn'] = 0
+                    self.__children.append(Tree(new_state, 0, iterration, 'place', move))
 
+        #Pour chaque MOUVEMENT possible on crée des enfants
+        for move in possiblemove:
+            layer_m, row_m, column_m = move
+
+            for place in possibleplacement:
+                new_state = copy.deepcopy(state)
+                layer, row, column = place
+                if place[0] > move[0]:
+                    if new_state._state['visible']['board'][layer_m][row_m][column_m] == self.__player:
+                        try:
+                            new_state._state['visible']['board'][layer_m][row_m][column_m] = None
+                            new_state.validPosition(layer, row, column)
+                            new_state._state['visible']['reserve'][self.__player] += 1
+                            new_state._state['visible']['board'][layer][row][column] = self.__player
+
+                            # limitation des ittérations
+                            if self.__iterration > 0:
+                                if self.__player == 0:
+                                    iterration = self.__iterration - 1
+                                    new_state._state['visible']['turn'] = 1
+                                    self.__children.append(Tree(new_state, 1, iterration, 'move', move))
+                                else:
+                                    iterration = self.__iterration - 1
+                                    new_state._state['visible']['turn'] = 0
+                                    self.__children.append(Tree(new_state, 0, iterration, 'move', move))
+                        except:
+                            pass
 
 if __name__ == '__main__':
     # Create the top-level parser
