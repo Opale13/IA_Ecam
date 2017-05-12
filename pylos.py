@@ -287,23 +287,22 @@ class Tree:
         return self.__coup
 
     def _possibleplacement(self, state):
-        '''Enregistre tous les places où on peut faire une action'''
+        '''Enregistre toute les places où on peut faire un placement'''
         possibleplacement = []
         for move in self._getplace(state):
             try:
-                layer, row, column = move
-                state.validPosition(layer, row, column)
+                state.validPosition(move[0], move[1], move[2])
                 possibleplacement.append(move)
             except:
                 pass
         return possibleplacement
 
     def _possiblemove(self, state):
+        '''Enregistre toute les places où on peut bouger une bille'''
         possiblemove = []
         for move in self._getmove(state):
             try:
-                layer, row, column = move
-                state.canMove(layer, row, column)
+                state.canMove(move[0], move[1], move[2])
                 possiblemove.append(move)
             except:
                 pass
@@ -334,8 +333,10 @@ class Tree:
         return move
 
     def _getmove(self, state):
+        '''Cherche toute les places où on peut bouger une bille'''
         move = []
         statue = state._state['visible']['board']
+        player = state._state['visible']['turn']
         layer = 0
 
         while layer < 3:
@@ -347,7 +348,7 @@ class Tree:
                 lines = statue[layer][number_line]
 
                 for place in lines:
-                    if place is not None:
+                    if place is not None and place == player:
                         move.append((layer, indice // long_layer, indice % long_layer))
                     indice += 1
 
@@ -380,30 +381,26 @@ class Tree:
 
         #Pour chaque MOUVEMENT possible on crée des enfants
         for move in possiblemove:
-            layer_m, row_m, column_m = move
-
             for place in possibleplacement:
                 new_state = copy.deepcopy(state)
-                layer, row, column = place
                 if place[0] > move[0]:
-                    if new_state._state['visible']['board'][layer_m][row_m][column_m] == self.__player:
-                        try:
-                            new_state._state['visible']['board'][layer_m][row_m][column_m] = None
-                            new_state.validPosition(layer, row, column)
-                            new_state._state['visible']['board'][layer][row][column] = self.__player
+                    try:
+                        new_state._state['visible']['board'][move[0]][move[1]][move[2]] = None
+                        new_state.validPosition(place[0], place[1], place[2])
+                        new_state._state['visible']['board'][place[0]][place[1]][place[2]] = self.__player
 
-                            # limitation des ittérations
-                            if self.__iterration > 0:
-                                if self.__player == 0:
-                                    iterration = self.__iterration - 1
-                                    new_state._state['visible']['turn'] = 1
-                                    self.__children.append(Tree(new_state, 1, iterration, 'move', move))
-                                else:
-                                    iterration = self.__iterration - 1
-                                    new_state._state['visible']['turn'] = 0
-                                    self.__children.append(Tree(new_state, 0, iterration, 'move', move))
-                        except:
-                            pass
+                        # limitation des ittérations
+                        if self.__iterration > 0:
+                            if self.__player == 0:
+                                iterration = self.__iterration - 1
+                                new_state._state['visible']['turn'] = 1
+                                self.__children.append(Tree(new_state, 1, iterration, 'move', move))
+                            else:
+                                iterration = self.__iterration - 1
+                                new_state._state['visible']['turn'] = 0
+                                self.__children.append(Tree(new_state, 0, iterration, 'move', move))
+                    except:
+                        pass
 
 if __name__ == '__main__':
     # Create the top-level parser
