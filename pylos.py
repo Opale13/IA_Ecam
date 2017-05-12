@@ -365,6 +365,7 @@ class Tree:
             new_state = copy.deepcopy(state)
             layer, row, column = move
             new_state._state['visible']['board'][layer][row][column] = self.__player
+            new_state._state['visible']['reserve'][self.__player] -= 1
 
             #limitation des ittérations
             if self.__iterration > 0:
@@ -389,7 +390,6 @@ class Tree:
                         try:
                             new_state._state['visible']['board'][layer_m][row_m][column_m] = None
                             new_state.validPosition(layer, row, column)
-                            new_state._state['visible']['reserve'][self.__player] += 1
                             new_state._state['visible']['board'][layer][row][column] = self.__player
 
                             # limitation des ittérations
