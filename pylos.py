@@ -197,20 +197,21 @@ class PylosServer(game.GameServer):
 class PylosClient(game.GameClient):
     '''Class representing a client for the Pylos game.'''
     def __init__(self, name, server, verbose=False):
+        self.__tampon = 0
         super().__init__(server, PylosState, verbose=verbose)
         self.__name = name
-    
+
     def _handle(self, message):
         pass
     
     #return move as string
     def _nextmove(self, state):
-        player = state._state['visible']['turn']
         iterration = 2
+        t = Tree(state, 0, iterration)
+        print(t)
 
         #Eviter d'afficher plus de 2 itérrations le pc n'aime pas trop
-        t = Tree(state, player, iterration)
-        print(t)
+
         '''
         example of moves
         coordinates are like [layer, row, colums]
@@ -247,22 +248,27 @@ class PylosClient(game.GameClient):
                         })
 
 class Tree:
-    def __init__(self, state, player, iterration, move='place', coup='', children=[]):
+    def __init__(self, state, tour, iterration, coup={}, children=[]):
         self.__state = copy.deepcopy(state)
-        self.__player = player
+        self.__player = self.__state._state['visible']['turn']
         self.__iterration = iterration
-        self.__move = move
-        self.__coup = coup
+        self.__coup = coup #Permet de savoir si on place ou si on bouge et où
+
         self.__children = copy.deepcopy(children)
+        self.__tour = tour
 
         self._coupvalide(self.__state)
 
     def __str__(self):
         '''Affiche l'arbre et ses enfants'''
         def _str(tree, level):
-            result = '{}:[{}]\n'.format(tree.move, tree.__state)
+            result = '{} [to:{} from:{}]\n{}{}\n'.format(tree.coup['move'],
+                                            tree.coup['to'],
+                                            tree.coup['from'],
+                                            '    ' * level,
+                                            tree.state)
             for child in tree.children:
-                result += '{}|--{}'.format('  ' * level, _str(child, level + 1))
+                result += '{}|--{}'.format('    ' * level, _str(child, level + 1))
             return result
         return _str(self, 0)
 
@@ -279,12 +285,16 @@ class Tree:
         return self.__children
 
     @property
-    def move(self):
-        return self.__move
-
-    @property
     def coup(self):
-        return self.__coup
+        coup = {}
+        if len(self.__coup) == 0:
+            coup['move'] = ''
+            coup['to'] = ''
+            coup['from'] = ''
+            return coup
+        else:
+            return self.__coup
+
 
     def _possibleplacement(self, state):
         '''Enregistre toute les places où on peut faire un placement'''
@@ -296,18 +306,6 @@ class Tree:
             except:
                 pass
         return possibleplacement
-
-    def _possiblemove(self, state):
-        '''Enregistre toute les places où on peut bouger une bille'''
-        possiblemove = []
-        for move in self._getmove(state):
-            try:
-                state.canMove(move[0], move[1], move[2])
-                possiblemove.append(move)
-            except:
-                pass
-
-        return possiblemove
 
     def _getplace(self, state):
         '''Cherche toute les places vide sur le plateau'''
@@ -331,6 +329,18 @@ class Tree:
                 number_line += 1
             layer += 1
         return move
+
+    def _possiblemove(self, state):
+        '''Enregistre toute les places où on peut bouger une bille'''
+        possiblemove = []
+        for move in self._getmove(state):
+            try:
+                state.canMove(move[0], move[1], move[2])
+                possiblemove.append(move)
+            except:
+                pass
+
+        return possiblemove
 
     def _getmove(self, state):
         '''Cherche toute les places où on peut bouger une bille'''
@@ -364,27 +374,43 @@ class Tree:
         #Pour chaque PLACEMENT possible on créé des enfants
         for move in possibleplacement:
             new_state = copy.deepcopy(state)
-            layer, row, column = move
-            new_state._state['visible']['board'][layer][row][column] = self.__player
+            new_state._state['visible']['board'][move[0]][move[1]][move[2]] = self.__player
             new_state._state['visible']['reserve'][self.__player] -= 1
 
             #limitation des ittérations
             if self.__iterration > 0:
                 if self.__player == 0:
+                    #Permetra de savoir le mouvement et la coord
+                    movement = {}
+                    movement['move'] = 'placer'
+                    movement['to'] = move
+                    movement['from'] = ''
+
                     iterration = self.__iterration - 1
                     new_state._state['visible']['turn'] = 1
-                    self.__children.append(Tree(new_state, 1, iterration, 'place', move))
+                    tour = self.__tour + 1
+                    self.__children.append(Tree(new_state, tour, iterration, movement))
                 else:
+                    # Permetra de savoir le mouvement et la coord
+                    movement = {}
+                    movement['move'] = 'placer'
+                    movement['to'] = move
+                    movement['from'] = ''
+
                     iterration = self.__iterration - 1
                     new_state._state['visible']['turn'] = 0
-                    self.__children.append(Tree(new_state, 0, iterration, 'place', move))
+                    tour = self.__tour + 1
+                    self.__children.append(Tree(new_state, tour, iterration, movement))
 
         #Pour chaque MOUVEMENT possible on crée des enfants
-        for move in possiblemove:
-            for place in possibleplacement:
+        #(prendre une boulle du plateau et la poser au layer suivant)
+        for move in possiblemove: #Prend chaque boulle qu'on peut bouger
+            for place in possibleplacement: #Prend chaque postion libre
                 new_state = copy.deepcopy(state)
+
                 if place[0] > move[0]:
                     try:
+                        #Enleve la boulle, verifie la position final et place la boule
                         new_state._state['visible']['board'][move[0]][move[1]][move[2]] = None
                         new_state.validPosition(place[0], place[1], place[2])
                         new_state._state['visible']['board'][place[0]][place[1]][place[2]] = self.__player
@@ -392,13 +418,27 @@ class Tree:
                         # limitation des ittérations
                         if self.__iterration > 0:
                             if self.__player == 0:
+                                # Permetra de savoir le mouvement et les coords
+                                mouvement = {}
+                                movement['move'] = 'move'
+                                movement['to'] = move
+                                movement['from'] = place
+
                                 iterration = self.__iterration - 1
                                 new_state._state['visible']['turn'] = 1
-                                self.__children.append(Tree(new_state, 1, iterration, 'move', move))
+                                tour = self.__tour + 1
+                                self.__children.append(Tree(new_state, tour, iterration, movement))
                             else:
+                                # Permetra de savoir le mouvement et les coords
+                                movement = {}
+                                movement['move'] = 'move'
+                                movement['to'] = move
+                                movement['from'] = place
+
                                 iterration = self.__iterration - 1
                                 new_state._state['visible']['turn'] = 0
-                                self.__children.append(Tree(new_state, 0, iterration, 'move', move))
+                                tour = self.__tour + 1
+                                self.__children.append(Tree(new_state, tour, iterration, movement))
                     except:
                         pass
 
