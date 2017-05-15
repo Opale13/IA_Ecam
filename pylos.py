@@ -235,7 +235,6 @@ class PylosClient(game.GameClient):
 
         iterration = 3
         t = Tree(state, 0, iterration)
-        #print(t)
 
         if state._state['visible']['turn'] == 0:
             player = 0
@@ -250,15 +249,30 @@ class PylosClient(game.GameClient):
         bestmove = {}
         coup = {}
 
+
         for gen1 in t:
-            if gen1.state._state['visible']['reserve'][notplayer] == 1 or gen1.state._state['visible']['reserve'][player] == 1:
-                coup['move'] = gen1.coup['move']
-                coup['to'] = list(gen1.coup['to'])
-                return json.dumps(coup)
+            etat1 = gen1.state._state['visible']
+
+            #Verifie que si c'est le dernier tour on place juste la bille au seul endroit libre
+            if gen1.coup['move'] == 'place':
+                if etat1['reserve'][notplayer] == 1 or etat1['reserve'][player] == 1:
+                    coup['move'] = gen1.coup['move']
+                    coup['to'] = list(gen1.coup['to'])
+
+                    return json.dumps(coup)
+            else:
+                if etat1['reserve'][notplayer] == 1 or etat1['reserve'][player] == 1:
+                    coup['move'] = gen1.coup['move']
+                    coup['from'] = list(gen1.coup['from'])
+                    coup['to'] = list(gen1.coup['to'])
+
+                    return json.dumps(coup)
 
             for gen2 in gen1:
-                coup_2 = gen2.coup['to']
+                etat2 = gen2.state._state['visible']
 
+                #Fait en sorte de bloquer un carré
+                coup_2 = gen2.coup['to']
                 if state._state['visible']['board'][coup_2[0]][coup_2[1]][coup_2[2]] is None:
                     if gen2.state.createSquare(coup_2):
                         print("Je bloque le carré")
@@ -267,21 +281,24 @@ class PylosClient(game.GameClient):
                                            'to': list(coup_2)})
 
                 for gen3 in gen2:
+                    etat3 = gen3.state._state['visible']
+
+                    #Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
                     if player == 0:
                         delta_reserve = 0
-                        delta_reserve += gen1.state._state['visible']['reserve'][notplayer] - gen1.state._state['visible']['reserve'][player]
-                        delta_reserve += gen2.state._state['visible']['reserve'][notplayer] - gen2.state._state['visible']['reserve'][player]
-                        delta_reserve += gen3.state._state['visible']['reserve'][notplayer] - gen3.state._state['visible']['reserve'][player]
+                        delta_reserve += etat1['reserve'][notplayer] - etat1['reserve'][player]
+                        delta_reserve += etat2['reserve'][notplayer] - etat2['reserve'][player]
+                        delta_reserve += etat3['reserve'][notplayer] - etat3['reserve'][player]
                     else:
                         delta_reserve = 0
-                        delta_reserve += gen1.state._state['visible']['reserve'][player] - gen1.state._state['visible']['reserve'][notplayer]
-                        delta_reserve += gen2.state._state['visible']['reserve'][player] - gen2.state._state['visible']['reserve'][notplayer]
-                        delta_reserve += gen3.state._state['visible']['reserve'][player] - gen3.state._state['visible']['reserve'][notplayer]
+                        delta_reserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
+                        delta_reserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
+                        delta_reserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
 
-
-                    if len(self.__dontmove) > 0 and gen1.coup['move'] == 'move':
+                    #Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
+                    if gen1.coup['move'] == 'move':
                             if gen1.coup['from'] in self.__dontmove:
-                                pass
+                                pass #Empeche de faire le mouvement si ça créé un carré pour l'adversaire
                             else:
                                 if delta_reserve > delta_save:
                                     delta_save = delta_reserve
