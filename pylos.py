@@ -245,7 +245,11 @@ class PylosClient(game.GameClient):
 
         print("I'm:", player)
 
-        delta_save = 0
+        if player == 1:
+            delta_save = 0
+        else:
+            delta_save = -3
+
         bestmove = {}
         coup = {}
 
@@ -284,30 +288,36 @@ class PylosClient(game.GameClient):
                     etat3 = gen3.state._state['visible']
 
                     #Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
-                    if player == 0:
-                        delta_reserve = 0
-                        delta_reserve += etat1['reserve'][notplayer] - etat1['reserve'][player]
-                        delta_reserve += etat2['reserve'][notplayer] - etat2['reserve'][player]
-                        delta_reserve += etat3['reserve'][notplayer] - etat3['reserve'][player]
-                    else:
-                        delta_reserve = 0
-                        delta_reserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
-                        delta_reserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
-                        delta_reserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
+                    delta_reserve = 0
+                    delta_reserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
+                    delta_reserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
+                    delta_reserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
 
                     #Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
                     if gen1.coup['move'] == 'move':
                             if gen1.coup['from'] in self.__dontmove:
                                 pass #Empeche de faire le mouvement si ça créé un carré pour l'adversaire
                             else:
-                                if delta_reserve > delta_save:
-                                    delta_save = delta_reserve
-                                    bestmove = gen1.coup
+                                if player == 1:
+                                    if delta_reserve > delta_save:
+                                        delta_save = delta_reserve
+                                        bestmove = gen1.coup
+
+                                else:
+                                    if delta_reserve == delta_save or delta_reserve > delta_save:
+                                        delta_save = delta_reserve
+                                        bestmove = gen1.coup
 
                     else:
-                        if delta_reserve > delta_save:
-                            delta_save = delta_reserve
-                            bestmove = gen1.coup
+                        if player == 1:
+                            if delta_reserve > delta_save:
+                                delta_save = delta_reserve
+                                bestmove = gen1.coup
+
+                        else:
+                            if delta_reserve == delta_save or delta_reserve > delta_save:
+                                delta_save = delta_reserve
+                                bestmove = gen1.coup
 
 
         if bestmove['move'] == 'place':
