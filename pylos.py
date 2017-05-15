@@ -197,7 +197,7 @@ class PylosServer(game.GameServer):
 class PylosClient(game.GameClient):
     '''Class representing a client for the Pylos game.'''
     def __init__(self, name, server, verbose=False):
-        self.__tampon = 0
+        self.__dontmove = []
         super().__init__(server, PylosState, verbose=verbose)
         self.__name = name
 
@@ -206,12 +206,6 @@ class PylosClient(game.GameClient):
     
     #return move as string
     def _nextmove(self, state):
-        iterration = 2
-        t = Tree(state, 0, iterration)
-        print(t)
-
-        #Eviter d'afficher plus de 2 itérrations le pc n'aime pas trop
-
         '''
         example of moves
         coordinates are like [layer, row, colums]
@@ -235,17 +229,93 @@ class PylosClient(game.GameClient):
                 [1,1,2]
             ]
         }
-        
+
         return it in JSON
         '''
-        for layer in range(4):
-            for row in range(4-layer):
-                for column in range(4-layer):
-                    if state.get(layer, row, column) == None:
-                        return json.dumps({
-                            'move': 'place',
-                            'to': [layer, row, column]
-                        })
+
+        iterration = 3
+        t = Tree(state, 0, iterration)
+        #print(t)
+
+        if state._state['visible']['turn'] == 0:
+            player = 0
+            notplayer = 1
+        else:
+            player = 1
+            notplayer = 0
+
+        print("I'm:", player)
+
+        delta_save = 0
+        bestmove = {}
+        coup = {}
+
+        for gen1 in t:
+            if gen1.state._state['visible']['reserve'][notplayer] == 1 or gen1.state._state['visible']['reserve'][player] == 1:
+                coup['move'] = gen1.coup['move']
+                coup['to'] = list(gen1.coup['to'])
+                return json.dumps(coup)
+
+            for gen2 in gen1:
+                coup_2 = gen2.coup['to']
+
+                if state._state['visible']['board'][coup_2[0]][coup_2[1]][coup_2[2]] is None:
+                    if gen2.state.createSquare(coup_2):
+                        print("Je bloque le carré")
+                        self.__dontmove.append(coup_2)
+                        return json.dumps({'move': 'place',
+                                           'to': list(coup_2)})
+
+                for gen3 in gen2:
+                    if player == 0:
+                        delta_reserve = 0
+                        delta_reserve += gen1.state._state['visible']['reserve'][notplayer] - gen1.state._state['visible']['reserve'][player]
+                        delta_reserve += gen2.state._state['visible']['reserve'][notplayer] - gen2.state._state['visible']['reserve'][player]
+                        delta_reserve += gen3.state._state['visible']['reserve'][notplayer] - gen3.state._state['visible']['reserve'][player]
+                    else:
+                        delta_reserve = 0
+                        delta_reserve += gen1.state._state['visible']['reserve'][player] - gen1.state._state['visible']['reserve'][notplayer]
+                        delta_reserve += gen2.state._state['visible']['reserve'][player] - gen2.state._state['visible']['reserve'][notplayer]
+                        delta_reserve += gen3.state._state['visible']['reserve'][player] - gen3.state._state['visible']['reserve'][notplayer]
+
+
+                    if len(self.__dontmove) > 0 and gen1.coup['move'] == 'move':
+                            if gen1.coup['from'] in self.__dontmove:
+                                pass
+                            else:
+                                if delta_reserve > delta_save:
+                                    delta_save = delta_reserve
+                                    bestmove = gen1.coup
+
+                    else:
+                        if delta_reserve > delta_save:
+                            delta_save = delta_reserve
+                            bestmove = gen1.coup
+
+
+        if bestmove['move'] == 'place':
+            coup['move'] = bestmove['move']
+            coup['to'] = list(bestmove['to'])
+
+            return json.dumps(coup)
+
+        elif bestmove['move'] == 'move':
+            coup['move'] = bestmove['move']
+            coup['from'] = list(bestmove['from'])
+            coup['to'] = list(bestmove['to'])
+
+            return json.dumps(coup)
+
+
+
+#        for layer in range(4):
+#            for row in range(4-layer):
+#                for column in range(4-layer):
+#                    if state.get(layer, row, column) == None:
+#                        return json.dumps({
+#                            'move': 'place',
+#                            'to': [layer, row, column]
+#                        })
 
 class Tree:
     def __init__(self, state, tour, iterration, coup={}, children=[]):
@@ -262,11 +332,11 @@ class Tree:
     def __str__(self):
         '''Affiche l'arbre et ses enfants'''
         def _str(tree, level):
-            result = '{} [to:{} from:{}]\n{}{}\n'.format(tree.coup['move'],
-                                            tree.coup['to'],
-                                            tree.coup['from'],
-                                            '    ' * level,
-                                            tree.state)
+            result = '{} [from:{} to:{}]\n{}{}\n'.format(tree.coup['move'],
+                                                         tree.coup['from'],
+                                                         tree.coup['to'],
+                                                         '    ' * level,
+                                                         tree.state._state['visible'])
             for child in tree.children:
                 result += '{}|--{}'.format('    ' * level, _str(child, level + 1))
             return result
@@ -278,7 +348,7 @@ class Tree:
 
     @property
     def state(self):
-        return self.__state._state['visible']
+        return self.__state
 
     @property
     def children(self):
@@ -295,7 +365,6 @@ class Tree:
         else:
             return self.__coup
 
-
     def _possibleplacement(self, state):
         '''Enregistre toute les places où on peut faire un placement'''
         possibleplacement = []
@@ -305,6 +374,7 @@ class Tree:
                 possibleplacement.append(move)
             except:
                 pass
+
         return possibleplacement
 
     def _getplace(self, state):
@@ -331,7 +401,7 @@ class Tree:
         return move
 
     def _possiblemove(self, state):
-        '''Enregistre toute les places où on peut bouger une bille'''
+        '''Enregistre toute les places des billes qu'on peut déplacer'''
         possiblemove = []
         for move in self._getmove(state):
             try:
@@ -343,7 +413,7 @@ class Tree:
         return possiblemove
 
     def _getmove(self, state):
-        '''Cherche toute les places où on peut bouger une bille'''
+        '''Cherche toute les places des billes qui sont à nous'''
         move = []
         statue = state._state['visible']['board']
         player = state._state['visible']['turn']
@@ -382,7 +452,7 @@ class Tree:
                 if self.__player == 0:
                     #Permetra de savoir le mouvement et la coord
                     movement = {}
-                    movement['move'] = 'placer'
+                    movement['move'] = 'place'
                     movement['to'] = move
                     movement['from'] = ''
 
@@ -393,7 +463,7 @@ class Tree:
                 else:
                     # Permetra de savoir le mouvement et la coord
                     movement = {}
-                    movement['move'] = 'placer'
+                    movement['move'] = 'place'
                     movement['to'] = move
                     movement['from'] = ''
 
@@ -421,8 +491,8 @@ class Tree:
                                 # Permetra de savoir le mouvement et les coords
                                 mouvement = {}
                                 movement['move'] = 'move'
-                                movement['to'] = move
-                                movement['from'] = place
+                                movement['to'] = place
+                                movement['from'] = move
 
                                 iterration = self.__iterration - 1
                                 new_state._state['visible']['turn'] = 1
@@ -432,8 +502,8 @@ class Tree:
                                 # Permetra de savoir le mouvement et les coords
                                 movement = {}
                                 movement['move'] = 'move'
-                                movement['to'] = move
-                                movement['from'] = place
+                                movement['to'] = place
+                                movement['from'] = move
 
                                 iterration = self.__iterration - 1
                                 new_state._state['visible']['turn'] = 0
