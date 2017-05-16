@@ -9,24 +9,27 @@ import socket
 import sys
 import json
 import copy
+import random
 
 from lib import game
 
+
 class PylosState(game.GameState):
     '''Class representing a state for the Pylos game.'''
+
     def __init__(self, initialstate=None):
-        
+
         if initialstate == None:
             # define a layer of the board
             def squareMatrix(size):
                 matrix = []
                 for i in range(size):
-                    matrix.append([None]*size)
+                    matrix.append([None] * size)
                 return matrix
 
             board = []
             for i in range(4):
-                board.append(squareMatrix(4-i))
+                board.append(squareMatrix(4 - i))
 
             initialstate = {
                 'board': board,
@@ -39,9 +42,9 @@ class PylosState(game.GameState):
     def get(self, layer, row, column):
         '''Permet de savoir si les coord sont bonnes et si la place est libre'''
         if layer < 0 or row < 0 or column < 0:
-            raise game.InvalidMoveException('The position ({}) is outside of the board'.format([layer, row, column]))         
+            raise game.InvalidMoveException('The position ({}) is outside of the board'.format([layer, row, column]))
         try:
-            #return None si vide, 1 ou 0 en fonction du joueur
+            # return None si vide, 1 ou 0 en fonction du joueur
             return self._state['visible']['board'][layer][row][column]
         except:
             raise game.InvalidMoveException('The position ({}) is outside of the board'.format([layer, row, column]))
@@ -59,10 +62,10 @@ class PylosState(game.GameState):
 
         if layer > 0:
             if (
-                self.get(layer-1, row, column) == None or
-                self.get(layer-1, row+1, column) == None or
-                self.get(layer-1, row+1, column+1) == None or
-                self.get(layer-1, row, column+1) == None
+                                    self.get(layer - 1, row, column) == None or
+                                    self.get(layer - 1, row + 1, column) == None or
+                                self.get(layer - 1, row + 1, column + 1) == None or
+                            self.get(layer - 1, row, column + 1) == None
             ):
                 raise game.InvalidMoveException('The position ({}) is not stable'.format([layer, row, column]))
 
@@ -73,10 +76,10 @@ class PylosState(game.GameState):
 
         if layer < 3:
             if (
-                self.safeGet(layer+1, row, column) != None or
-                self.safeGet(layer+1, row-1, column) != None or
-                self.safeGet(layer+1, row-1, column-1) != None or
-                self.safeGet(layer+1, row, column-1) != None
+                                    self.safeGet(layer + 1, row, column) != None or
+                                    self.safeGet(layer + 1, row - 1, column) != None or
+                                self.safeGet(layer + 1, row - 1, column - 1) != None or
+                            self.safeGet(layer + 1, row, column - 1) != None
             ):
                 raise game.InvalidMoveException('The position ({}) is not movable'.format([layer, row, column]))
 
@@ -86,19 +89,19 @@ class PylosState(game.GameState):
 
         def isSquare(layer, row, column):
             if (
-                self.safeGet(layer, row, column) != None and
-                self.safeGet(layer, row+1, column) == self.safeGet(layer, row, column) and
-                self.safeGet(layer, row+1, column+1) == self.safeGet(layer, row, column) and
-                self.safeGet(layer, row, column+1) == self.safeGet(layer, row, column)
+                                    self.safeGet(layer, row, column) != None and
+                                    self.safeGet(layer, row + 1, column) == self.safeGet(layer, row, column) and
+                                self.safeGet(layer, row + 1, column + 1) == self.safeGet(layer, row, column) and
+                            self.safeGet(layer, row, column + 1) == self.safeGet(layer, row, column)
             ):
                 return True
             return False
 
         if (
-            isSquare(layer, row, column) or
-            isSquare(layer, row-1, column) or
-            isSquare(layer, row-1, column-1) or
-            isSquare(layer, row, column-1)
+                            isSquare(layer, row, column) or
+                            isSquare(layer, row - 1, column) or
+                        isSquare(layer, row - 1, column - 1) or
+                    isSquare(layer, row, column - 1)
         ):
             return True
         return False
@@ -115,7 +118,7 @@ class PylosState(game.GameState):
         if sphere != player:
             raise game.InvalidMoveException('not your sphere')
         self._state['visible']['board'][layer][row][column] = None
-        
+
     # update the state with the move
     # raise game.InvalidMoveException
     def update(self, move, player):
@@ -132,7 +135,7 @@ class PylosState(game.GameState):
             try:
                 self.set(move['to'], player)
             except game.InvalidMoveException as e:
-                self.set(move['from'], player) 
+                self.set(move['from'], player)
                 raise e
         else:
             raise game.InvalidMoveException('Invalid Move:\n{}'.format(move))
@@ -147,7 +150,6 @@ class PylosState(game.GameState):
                 state['reserve'][player] += 1
 
         state['turn'] = (state['turn'] + 1) % 2
-
 
     # return 0 or 1 if a winner, return None if draw, return -1 if game continue
     def winner(self):
@@ -165,8 +167,8 @@ class PylosState(game.GameState):
         return 'Light' if val == 0 else 'Dark'
 
     def printSquare(self, matrix):
-        print(' ' + '_'*(len(matrix)*2-1))
-        print('\n'.join(map(lambda row : '|' + '|'.join(map(self.val2str, row)) + '|', matrix)))
+        print(' ' + '_' * (len(matrix) * 2 - 1))
+        print('\n'.join(map(lambda row: '|' + '|'.join(map(self.val2str, row)) + '|', matrix)))
 
     # print the state
     def prettyprint(self):
@@ -174,28 +176,32 @@ class PylosState(game.GameState):
         for layer in range(4):
             self.printSquare(state['board'][layer])
             print()
-        
+
         for player, reserve in enumerate(state['reserve']):
             print('Reserve of {}:'.format(self.player2str(player)))
-            print((self.val2str(player)+' ')*reserve)
+            print((self.val2str(player) + ' ') * reserve)
             print()
-        
+
         print('{} to play !'.format(self.player2str(state['turn'])))
-        #print(json.dumps(self._state['visible'], indent=4))       
+        # print(json.dumps(self._state['visible'], indent=4))
+
 
 class PylosServer(game.GameServer):
     '''Class representing a server for the Pylos game.'''
+
     def __init__(self, verbose=False):
         super().__init__('Pylos', 2, PylosState(), verbose=verbose)
-    
+
     def applymove(self, move):
         try:
             self._state.update(json.loads(move), self.currentplayer)
         except json.JSONDecodeError:
             raise game.InvalidMoveException('move must be valid JSON string: {}'.format(move))
 
+
 class PylosClient(game.GameClient):
     '''Class representing a client for the Pylos game.'''
+
     def __init__(self, name, server, verbose=False):
         self.__dontmove = []
         super().__init__(server, PylosState, verbose=verbose)
@@ -203,8 +209,8 @@ class PylosClient(game.GameClient):
 
     def _handle(self, message):
         pass
-    
-    #return move as string
+
+    # return move as string
     def _nextmove(self, state):
         '''
         example of moves
@@ -213,13 +219,11 @@ class PylosClient(game.GameClient):
             'move': 'place',
             'to': [0,1,1]
         }
-
         move = {
             'move': 'move',
             'from': [0,1,1],
             'to': [1,1,1]
         }
-
         move = {
             'move': 'move',
             'from': [0,1,1],
@@ -229,11 +233,10 @@ class PylosClient(game.GameClient):
                 [1,1,2]
             ]
         }
-
         return it in JSON
         '''
 
-        iterration = 3
+        iterration = 4
         t = Tree(state, 0, iterration)
 
         if state._state['visible']['turn'] == 0:
@@ -243,21 +246,16 @@ class PylosClient(game.GameClient):
             player = 1
             notplayer = 0
 
-        print("I'm:", player)
-
-        if player == 1:
-            delta_save = 0
-        else:
-            delta_save = -3
-
+        children = 0
         bestmove = {}
         coup = {}
-
+        save_reserve = -2
 
         for gen1 in t:
+            children += 1
             etat1 = gen1.state._state['visible']
 
-            #Verifie que si c'est le dernier tour on place juste la bille au seul endroit libre
+            # Verifie que si c'est le dernier tour on place juste la bille au seul endroit libre
             if gen1.coup['move'] == 'place':
                 if etat1['reserve'][notplayer] == 1 or etat1['reserve'][player] == 1:
                     coup['move'] = gen1.coup['move']
@@ -275,7 +273,7 @@ class PylosClient(game.GameClient):
             for gen2 in gen1:
                 etat2 = gen2.state._state['visible']
 
-                #Fait en sorte de bloquer un carré
+                # Fait en sorte de bloquer un carré
                 coup_2 = gen2.coup['to']
                 if state._state['visible']['board'][coup_2[0]][coup_2[1]][coup_2[2]] is None:
                     if gen2.state.createSquare(coup_2):
@@ -287,40 +285,32 @@ class PylosClient(game.GameClient):
                 for gen3 in gen2:
                     etat3 = gen3.state._state['visible']
 
-                    #Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
-                    delta_reserve = 0
-                    delta_reserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
-                    delta_reserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
-                    delta_reserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
+                    for gen4 in gen3:
+                        etat4 = gen4.state._state['visible']
+                        # Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
 
-                    #Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
-                    if gen1.coup['move'] == 'move':
+                        deltareserve = 0
+                        deltareserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
+                        deltareserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
+                        deltareserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
+                        deltareserve += etat4['reserve'][player] - etat4['reserve'][notplayer]
+
+                        # Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
+                        if gen1.coup['move'] == 'move':
                             if gen1.coup['from'] in self.__dontmove:
-                                pass #Empeche de faire le mouvement si ça créé un carré pour l'adversaire
+                                pass  # Empeche de faire le mouvement si ça créé un carré pour l'adversaire
                             else:
-                                if player == 1:
-                                    if delta_reserve > delta_save:
-                                        delta_save = delta_reserve
-                                        bestmove = gen1.coup
+                                if deltareserve >= save_reserve:
+                                    save_reserve = deltareserve
+                                    bestmove = gen1.coup
 
-                                else:
-                                    if delta_reserve == delta_save or delta_reserve > delta_save:
-                                        delta_save = delta_reserve
-                                        bestmove = gen1.coup
-
-                    else:
-                        if player == 1:
-                            if delta_reserve > delta_save:
-                                delta_save = delta_reserve
-                                bestmove = gen1.coup
-
-                        else:
-                            if delta_reserve == delta_save or delta_reserve > delta_save:
-                                delta_save = delta_reserve
+                        if gen2.coup['to'][0] <= gen1.coup['to'][0]:
+                            if deltareserve >= save_reserve:
+                                save_reserve = deltareserve
                                 bestmove = gen1.coup
 
         if len(bestmove) == 0:
-            bestmove = t[1].coup
+            bestmove = t[random.randint(0, children-1)].coup
 
         if bestmove['move'] == 'place':
             coup['move'] = bestmove['move']
@@ -336,8 +326,7 @@ class PylosClient(game.GameClient):
             return json.dumps(coup)
 
 
-
-#        for layer in range(4):
+# for layer in range(4):
 #            for row in range(4-layer):
 #                for column in range(4-layer):
 #                    if state.get(layer, row, column) == None:
@@ -351,7 +340,7 @@ class Tree:
         self.__state = copy.deepcopy(state)
         self.__player = self.__state._state['visible']['turn']
         self.__iterration = iterration
-        self.__coup = coup #Permet de savoir si on place ou si on bouge et où
+        self.__coup = coup  # Permet de savoir si on place ou si on bouge et où
 
         self.__children = copy.deepcopy(children)
         self.__tour = tour
@@ -360,6 +349,7 @@ class Tree:
 
     def __str__(self):
         '''Affiche l'arbre et ses enfants'''
+
         def _str(tree, level):
             result = '{} [from:{} to:{}]\n{}{}\n'.format(tree.coup['move'],
                                                          tree.coup['from'],
@@ -369,6 +359,7 @@ class Tree:
             for child in tree.children:
                 result += '{}|--{}'.format('    ' * level, _str(child, level + 1))
             return result
+
         return _str(self, 0)
 
     def __getitem__(self, item):
@@ -422,7 +413,7 @@ class Tree:
 
                 for place in lines:
                     if place is None:
-                        move.append((layer, indice//long_layer, indice%long_layer))
+                        move.append((layer, indice // long_layer, indice % long_layer))
                     indice += 1
 
                 number_line += 1
@@ -470,16 +461,16 @@ class Tree:
         possibleplacement = self._possibleplacement(state)
         possiblemove = self._possiblemove(state)
 
-        #Pour chaque PLACEMENT possible on créé des enfants
+        # Pour chaque PLACEMENT possible on créé des enfants
         for move in possibleplacement:
             new_state = copy.deepcopy(state)
             new_state._state['visible']['board'][move[0]][move[1]][move[2]] = self.__player
             new_state._state['visible']['reserve'][self.__player] -= 1
 
-            #limitation des ittérations
+            # limitation des ittérations
             if self.__iterration > 0:
                 if self.__player == 0:
-                    #Permetra de savoir le mouvement et la coord
+                    # Permetra de savoir le mouvement et la coord
                     movement = {}
                     movement['move'] = 'place'
                     movement['to'] = move
@@ -501,15 +492,15 @@ class Tree:
                     tour = self.__tour + 1
                     self.__children.append(Tree(new_state, tour, iterration, movement))
 
-        #Pour chaque MOUVEMENT possible on crée des enfants
-        #(prendre une boulle du plateau et la poser au layer suivant)
-        for move in possiblemove: #Prend chaque boulle qu'on peut bouger
-            for place in possibleplacement: #Prend chaque postion libre
+        # Pour chaque MOUVEMENT possible on crée des enfants
+        # (prendre une boulle du plateau et la poser au layer suivant)
+        for move in possiblemove:  # Prend chaque boulle qu'on peut bouger
+            for place in possibleplacement:  # Prend chaque postion libre
                 new_state = copy.deepcopy(state)
 
                 if place[0] > move[0]:
                     try:
-                        #Enleve la boulle, verifie la position final et place la boule
+                        # Enleve la boulle, verifie la position final et place la boule
                         new_state._state['visible']['board'][move[0]][move[1]][move[2]] = None
                         new_state.validPosition(place[0], place[1], place[2])
                         new_state._state['visible']['board'][place[0]][place[1]][place[2]] = self.__player
@@ -540,6 +531,7 @@ class Tree:
                                 self.__children.append(Tree(new_state, tour, iterration, movement))
                     except:
                         pass
+
 
 if __name__ == '__main__':
     # Create the top-level parser
