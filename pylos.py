@@ -319,6 +319,8 @@ class PylosClient(game.GameClient):
                                 delta_save = delta_reserve
                                 bestmove = gen1.coup
 
+        if len(bestmove) == 0:
+            bestmove = t[1].coup
 
         if bestmove['move'] == 'place':
             coup['move'] = bestmove['move']
