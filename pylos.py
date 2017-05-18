@@ -236,20 +236,21 @@ class PylosClient(game.GameClient):
         return it in JSON
         '''
 
-        iterration = 4
+        iterration = 3
         t = Tree(state, 0, iterration)
 
         if state._state['visible']['turn'] == 0:
             player = 0
             notplayer = 1
+
         else:
             player = 1
             notplayer = 0
 
+        save_reserve = -2
         children = 0
         bestmove = {}
         coup = {}
-        save_reserve = -2
 
         for gen1 in t:
             children += 1
@@ -275,39 +276,42 @@ class PylosClient(game.GameClient):
 
                 # Fait en sorte de bloquer un carré
                 coup_2 = gen2.coup['to']
-                if state._state['visible']['board'][coup_2[0]][coup_2[1]][coup_2[2]] is None:
-                    if gen2.state.createSquare(coup_2):
-                        print("Je bloque le carré")
-                        self.__dontmove.append(coup_2)
-                        return json.dumps({'move': 'place',
-                                           'to': list(coup_2)})
+                layer = coup_2[0]
+                row = coup_2[1]
+                collumn = coup_2[2]
+
+                try:
+                    if state._state['visible']['board'][coup_2[0]][coup_2[1]][coup_2[2]] is None:
+                        if gen2.state.createSquare(coup_2):
+                            state.validPosition(layer, row, collumn)
+                            print("Je bloque le carré")
+                            self.__dontmove.append(coup_2)
+                            return json.dumps({'move': 'place',
+                                               'to': list(coup_2)})
+                except:
+                    pass
 
                 for gen3 in gen2:
                     etat3 = gen3.state._state['visible']
 
-                    for gen4 in gen3:
-                        etat4 = gen4.state._state['visible']
-                        # Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
+                    # Creation du delta des reserves pour qu'il soit toujour positif en fonction du joueur
+                    deltareserve = 0
+                    deltareserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
+                    deltareserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
+                    deltareserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
 
-                        deltareserve = 0
-                        deltareserve += etat1['reserve'][player] - etat1['reserve'][notplayer]
-                        deltareserve += etat2['reserve'][player] - etat2['reserve'][notplayer]
-                        deltareserve += etat3['reserve'][player] - etat3['reserve'][notplayer]
-                        deltareserve += etat4['reserve'][player] - etat4['reserve'][notplayer]
-
-                        # Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
-                        if gen1.coup['move'] == 'move':
-                            if gen1.coup['from'] in self.__dontmove:
-                                pass  # Empeche de faire le mouvement si ça créé un carré pour l'adversaire
-                            else:
-                                if deltareserve >= save_reserve:
-                                    save_reserve = deltareserve
-                                    bestmove = gen1.coup
-
-                        if gen2.coup['to'][0] <= gen1.coup['to'][0]:
+                    # Permet de savoir si le mouvement qu'on va faire ne vas pas librer un carré possible
+                    if gen1.coup['move'] == 'move':
+                        if gen1.coup['from'] in self.__dontmove:
+                            pass  # Empeche de faire le mouvement si ça créé un carré pour l'adversaire
+                        else:
                             if deltareserve >= save_reserve:
                                 save_reserve = deltareserve
                                 bestmove = gen1.coup
+
+                    if deltareserve >= save_reserve:
+                        save_reserve = deltareserve
+                        bestmove = gen1.coup
 
         if len(bestmove) == 0:
             bestmove = t[random.randint(0, children-1)].coup
